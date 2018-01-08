@@ -35,6 +35,12 @@ namespace ConstumVisionEnd2End
         {
             /* you need at least 2 tags and 5 images for each tag to start*/
 
+            //generate random name for the project 
+            var projectName = Guid.NewGuid().ToString();
+            Console.WriteLine($"\tCreating a project in customvision.ai - project name: {projectName}");
+            var project = CreateProject(projectName);
+
+
             var basepath = Directory.GetCurrentDirectory();
 
             //read tags
@@ -42,13 +48,7 @@ namespace ConstumVisionEnd2End
             Console.WriteLine($"\tReading Tags from {tsgfilepath}");
             var tags = ReadTags(tsgfilepath);
 
-
-            //generate random name for the project 
-            var projectName = Guid.NewGuid().ToString();
-            Console.WriteLine($"\tCreating a project in customvision.ai - project name: {projectName}");
-            var project = CreateProject(projectName);
-
-
+            
             //download images - 
             var trainingSetPath = $"{basepath}\\{projectName}\\data\\TrainingSet";
             var testSetPath = $"{basepath}\\{projectName}\\data\\TestSet";
