@@ -5,7 +5,9 @@ Steps to run the sample
 1- sign in or first create a new account -   https://azure.microsoft.com/en-au/free/ 
 2- after login - click on cog sign on the right-hand side and copy key values into app settings
 https://github.com/Azadehkhojandi/CustomVisionSample/blob/master/documents/CustomVision1.PNG?raw=true
-[alt text](https://github.com/Azadehkhojandi/CustomVisionSample/blob/master/documents/CustomVision1.PNG?raw=true "custom vision keys")
+
+
+![alt text](https://raw.githubusercontent.com/Azadehkhojandi/CustomVisionSample/master/documents/CustomVision1.PNG)
 
 
 3- register for free bing search service - https://azure.microsoft.com/try/cognitive-services/?api=bing-web-search-api and copy the key value into the app settings
