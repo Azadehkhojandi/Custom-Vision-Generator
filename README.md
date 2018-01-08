@@ -22,4 +22,6 @@ our model is ready for testing, the app will try to test the model and exports c
 you can check how good or bad your model is.
 
 
-more information about custom vision - https://docs.microsoft.com/en-au/azure/cognitive-services/custom-vision-service/home
+more information about custom vision:
+https://docs.microsoft.com/en-au/azure/cognitive-services/custom-vision-service/home
+https://docs.microsoft.com/en-au/azure/cognitive-services/custom-vision-service/csharp-tutorial
