@@ -6,14 +6,14 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using ConstumVisionEnd2End.Models;
-using ConstumVisionEnd2End.Services;
 using CsvHelper;
+using CustomVisionEnd2End.Models;
+using CustomVisionEnd2End.Services;
 using Microsoft.Cognitive.CustomVision.Prediction;
 using Microsoft.Cognitive.CustomVision.Training;
 using Microsoft.Cognitive.CustomVision.Training.Models;
 
-namespace ConstumVisionEnd2End
+namespace CustomVisionEnd2End
 {
     class Program
     {
@@ -26,7 +26,8 @@ namespace ConstumVisionEnd2End
             catch (Exception e)
             {
                 Console.WriteLine(e);
-
+                Console.WriteLine($"\tPress any key to exit");
+                Console.ReadKey();
             }
 
         }

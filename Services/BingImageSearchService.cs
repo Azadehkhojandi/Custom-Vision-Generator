@@ -1,14 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
-using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
-using ConstumVisionEnd2End.Models;
+using CustomVisionEnd2End.Models;
 using Newtonsoft.Json;
 
-namespace ConstumVisionEnd2End.Services
+namespace CustomVisionEnd2End.Services
 {
     public interface IBingImageSearchService : IDisposable
     {

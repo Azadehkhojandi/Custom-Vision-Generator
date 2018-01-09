@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{7ED14174-9D83-4C93-94BD-8A3581527C63}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>ConstumVisionEnd2End</RootNamespace>
-    <AssemblyName>ConstumVisionEnd2End</AssemblyName>
+    <RootNamespace>CustomVisionEnd2End</RootNamespace>
+    <AssemblyName>CustomVisionEnd2End</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

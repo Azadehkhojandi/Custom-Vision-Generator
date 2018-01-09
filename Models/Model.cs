@@ -1,4 +1,4 @@
-﻿namespace ConstumVisionEnd2End.Models
+﻿namespace CustomVisionEnd2End.Models
 {
     public class Model
     {

@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace ConstumVisionEnd2End.Models
+namespace CustomVisionEnd2End.Models
 {
     public class Instrumentation
     {
