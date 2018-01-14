@@ -26,7 +26,7 @@ Now the model has enough data to be trained. the app will train the model and se
 our model is ready for testing, the app will try to test the model and exports confusion matrix into result.csv.
 you can check how good or bad your model is.
 
-![alt text](https://raw.githubusercontent.com/Azadehkhojandi/CustomVisionSample/master/documents/CustomVision3.PNG)
+![process running](https://user-images.githubusercontent.com/5225782/34922153-2eba3654-f9e0-11e7-9d50-d11950e35c71.gif)
 
 
 more information about custom vision:
