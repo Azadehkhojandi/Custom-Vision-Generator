@@ -28,7 +28,7 @@ namespace CustomVisionEnd2End.Services
             //\\domain: www.wikipedia.org - &license=Public
             // Construct the URI of the search request
 
-            var requestParameters = $"q=\"{Uri.EscapeDataString(searchQuery)}\"&count={count}&imageType=Photo&license=Public";
+            var requestParameters = $"q=\"{Uri.EscapeDataString(searchQuery)}\"&count={count}&imageType=Photo&maxFileSize=420192";
 
             var client = new HttpClient();
 

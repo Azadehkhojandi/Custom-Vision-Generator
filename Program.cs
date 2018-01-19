@@ -33,8 +33,8 @@ namespace CustomVisionEnd2End
                 var ts = stopWatch.Elapsed;
 
                 // Format and display the TimeSpan value.
-                var elapsedTime = $"{ts.Hours:00}:{ts.Minutes:00}:{ts.Seconds:00}.{ts.Milliseconds / 10:00}";
-                Console.WriteLine("RunTime " + elapsedTime);
+                var elapsedTime = $"\t{ts.Hours:00}:{ts.Minutes:00}:{ts.Seconds:00}.{ts.Milliseconds / 10:00}";
+                Console.WriteLine("\tRunTime: " + elapsedTime);
 
 
 
@@ -82,31 +82,28 @@ namespace CustomVisionEnd2End
 
             foreach (var tag in tags)
             {
-                //var t = new Thread(async () =>
                 {
                     using (var bingImageSearchService = new BingImageSearchService())
                     {
-                        Console.WriteLine($"\tStart Process for : {tag}");
+                        Console.WriteLine($"\tStarting the Process for : {tag}");
 
                         var bingresult = await bingImageSearchService.ImageSearch(tag, 20);
                         if (bingresult.value == null) return;
                         //training 
-                        var trainingphotos = DownloadImages($"{trainingSetPath}\\{tag}", bingresult.value.Take(10).ToList(), minTrainingPhotosCount);
+                        Console.WriteLine($"\tDownloading the training set");
+                        var trainingphotos = DownloadImages($"{trainingSetPath}\\{tag}", bingresult.value.ToList(), minTrainingPhotosCount);
                         //test
-                        var testphotos = DownloadImages($"{testSetPath}\\{tag}", bingresult.value.Skip(10).ToList(), minTestPhotosCount);
-
+                        Console.WriteLine($"\tDownloading the test set");
+                        var testphotos = DownloadImages($"{testSetPath}\\{tag}", bingresult.value.Skip(trainingphotos).ToList(), minTestPhotosCount);
+                       
                         if (trainingphotos < minTrainingPhotosCount || testphotos < minTestPhotosCount)
                         {
                             throw new Exception($"Bing couldn't find required images.you need at least 2 tags and 5 images for each tag to start");
                         }
                     }
                 }
-                //);
-
 
             }
-
-
 
             CreateTheModel(trainingSetPath, project);
 
@@ -133,7 +130,7 @@ namespace CustomVisionEnd2End
                     {
                         result.Add(line);
                     }
-                    return result;
+                    return result.Where(x=>!string.IsNullOrEmpty(x)).Select(x=>x).ToList();
                 }
             }
             catch (Exception e)
@@ -146,28 +143,30 @@ namespace CustomVisionEnd2End
 
         private static int DownloadImages(string pathString, List<Value> items, int numberofimagestodownload = -1)
         {
-            var counter = 0;
+            var counter = 1;
             Directory.CreateDirectory(pathString);
             foreach (var item in items)
             {
-                if (numberofimagestodownload > 0 && counter >= numberofimagestodownload)
+                if (numberofimagestodownload > 0 && counter > numberofimagestodownload)
                 {
                     return numberofimagestodownload;
                 }
                 try
                 {
-
+                    counter = counter + 1;
+                    Console.WriteLine("\tDownloading the image");
                     var imageurl = item.contentUrl;
                     var webClient = new WebClient();
                     var uri = new Uri(imageurl);
                     var filename = uri.Segments.Last();
                     webClient.DownloadFile(imageurl, pathString + "\\" + filename);
-                    counter = counter + 1;
+                   
                 }
                 catch (Exception e)
                 {
                     //kill exception and carry on
                     Console.WriteLine("\tImage download error: " + e.Message);
+                    counter = counter - 1;
                 }
             }
             return counter;
@@ -242,12 +241,6 @@ namespace CustomVisionEnd2End
                 Console.WriteLine(e);
 
             }
-
-
-
-
-
-
 
             var array2D = GenerateConfusionMatrix(labels, predictionResult);
 
@@ -348,14 +341,14 @@ namespace CustomVisionEnd2End
                 var rowLength = array2D.GetLength(1);
                 var colLength = array2D.GetLength(0);
 
-                Console.WriteLine("-------------------------------");
+                Console.WriteLine("\t--------------------------------------------------------------");
 
 
                 for (var i = 0; i < rowLength; i++)
                 {
                     for (var j = 0; j < colLength; j++)
                     {
-                        Console.Write($"{array2D[i, j],-30}");
+                        Console.Write($"\t{array2D[i, j],-30}");
                     }
                     Console.Write(Environment.NewLine + Environment.NewLine);
                 }
@@ -396,7 +389,7 @@ namespace CustomVisionEnd2End
             catch (Exception e)
             {
                 Console.WriteLine(e);
-                throw;
+               
             }
 
 
@@ -456,7 +449,7 @@ namespace CustomVisionEnd2End
             catch (Exception e)
             {
                 Console.WriteLine(e);
-                throw;
+               
             }
 
         }
