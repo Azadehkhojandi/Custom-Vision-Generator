@@ -25,9 +25,10 @@ namespace CustomVisionEnd2End.Services
 
             if (subscriptionKey.Length != 32)
                 throw new Exception("Invalid access key");
-            //\\domain: www.wikipedia.org - &license=Public
-            // Construct the URI of the search request
 
+            // Construct the URI of the search request
+            //you can add domain to search &domain=www.wikipedia.org
+            //or license of image  &license=Public
             var requestParameters = $"q=\"{Uri.EscapeDataString(searchQuery)}\"&count={count}&imageType=Photo&maxFileSize=420192";
 
             var client = new HttpClient();

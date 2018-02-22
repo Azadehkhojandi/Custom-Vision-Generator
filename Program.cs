@@ -53,11 +53,6 @@ namespace CustomVisionEnd2End
         {
             /* you need at least 2 tags and 5 images for each tag to start*/
 
-            //generate random name for the project 
-            var projectName = Guid.NewGuid().ToString();
-            Console.WriteLine($"\tCreating a project in customvision.ai - project name: {projectName}");
-            var project = CreateProject(projectName);
-
 
             var basepath = Directory.GetCurrentDirectory();
 
@@ -67,7 +62,14 @@ namespace CustomVisionEnd2End
             var tags = ReadTags(tsgfilepath);
 
 
+            //generate random name for the project 
+             
+            var projectName = tags.Count == 2 ? $"{tags[0]} {tags[1]} classifier {DateTime.Now:yyyyMMddHHmm}" :  DateTime.Now.ToString("yyyyMMddHHmm");
+            Console.WriteLine($"\tCreating a project in customvision.ai - project name: {projectName}");
+            var project = CreateProject(projectName);
+
             //download images - 
+            var imagesresouce = $"{basepath}\\{projectName}\\data\\";
             var trainingSetPath = $"{basepath}\\{projectName}\\data\\TrainingSet";
             var testSetPath = $"{basepath}\\{projectName}\\data\\TestSet";
             Console.WriteLine($"\tBing search & downloading images - split them in TrainingSet & TestSet for each tag");
@@ -89,8 +91,18 @@ namespace CustomVisionEnd2End
 
                         var bingresult = await bingImageSearchService.ImageSearch(tag, 20);
                         if (bingresult.value == null) return;
-                        //training 
-                        Console.WriteLine($"\tDownloading the training set");
+                        //
+                        using (var writer = new StreamWriter($"{imagesresouce}\\{tag}_resource.csv"))
+                        {
+                            using (var csvWriter = new CsvWriter(writer))
+                            {
+                                csvWriter.WriteRecords(bingresult.value);
+                            }
+                        }
+
+                    //
+                    //training 
+                    Console.WriteLine($"\tDownloading the training set");
                         var trainingphotos = DownloadImages($"{trainingSetPath}\\{tag}", bingresult.value.ToList(), minTrainingPhotosCount);
                         //test
                         Console.WriteLine($"\tDownloading the test set");
@@ -119,26 +131,35 @@ namespace CustomVisionEnd2End
 
         private static List<string> ReadTags(string tsgfilepath)
         {
-
             try
             {
                 var result = new List<string>();
-                using (TextReader reader = File.OpenText(tsgfilepath))
+                
+                using (TextReader fileReader = File.OpenText(tsgfilepath))
                 {
-                    string line;
-                    while ((line = reader.ReadLine()) != null)
+                    var csv = new CsvReader(fileReader);
+                    csv.Configuration.HasHeaderRecord = false;
+                    while (csv.Read())
                     {
-                        result.Add(line);
+                        string value;
+                        for (var i = 0; csv.TryGetField(i, out value); i++)
+                        {
+                            if (!string.IsNullOrEmpty(value))
+                            {
+                                result.Add(value);
+                            }
+                        }
                     }
-                    return result.Where(x=>!string.IsNullOrEmpty(x)).Select(x=>x).ToList();
                 }
+                return result;
+
+
             }
             catch (Exception e)
             {
                 Console.WriteLine(e);
                 throw;
             }
-
         }
 
         private static int DownloadImages(string pathString, List<Value> items, int numberofimagestodownload = -1)
