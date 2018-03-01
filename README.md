@@ -17,7 +17,7 @@ You'll need to install [Visual Studio](https://www.visualstudio.com/vs/community
 
 4. [Get a Computer Vision API key](https://docs.microsoft.com/en-us/azure/cognitive-services/Computer-vision/Vision-API-How-to-Topics/HowToSubscribe) to perform the smart thumbnails of downloaded images 
 
-5. Take a copy of SAMPLEApp.config rename it app.config and paste your keys into this file
+5. Take a copy of SAMPLEApp.config rename it app.config and paste your keys into this file and set the size of your image set (~70% to train and 30% to test)
 
 ## Running the application
 

@@ -323,3 +323,4 @@ ASALocalRun
 
 # MSBuild Binary and Structured Log
 .binlog
+/ConstumVisionEnd2End.csproj.user
