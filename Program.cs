@@ -91,7 +91,7 @@ namespace CustomVisionEnd2End
             int sizeOfImageSet = 10;
             try
             {
-                sizeOfImageSet = Convert.ToInt16(ConfigurationManager.AppSettings["sizeOfTrainingImageSet"]); //recommend 100
+                sizeOfImageSet = Convert.ToInt16(ConfigurationManager.AppSettings["sizeOfImageSet"]); //recommend 100
             }
             catch { }
 
