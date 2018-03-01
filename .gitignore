@@ -9,6 +9,9 @@
 .userosscache
 .sln.docstates
 
+# Remove the app.config file to avoid people accidently checking in their keys
+app.config
+
 # User-specific files (MonoDevelopXamarin Studio)
 .userprefs
 
@@ -320,3 +323,4 @@ ASALocalRun
 
 # MSBuild Binary and Structured Log
 .binlog
+/ConstumVisionEnd2End.csproj.user

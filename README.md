@@ -15,6 +15,10 @@ You'll need to install [Visual Studio](https://www.visualstudio.com/vs/community
 
 ![getting an API key](documents/BingSearch.PNG)
 
+4. [Get a Computer Vision API key](https://docs.microsoft.com/en-us/azure/cognitive-services/Computer-vision/Vision-API-How-to-Topics/HowToSubscribe) to perform the smart thumbnails of downloaded images 
+
+5. Take a copy of SAMPLEApp.config rename it app.config and paste your keys into this file and set the size of your image set (~70% to train and 30% to test)
+
 ## Running the application
 
 The app will create a project in your custom vision dashboard with a random GUID. Please note that each time you run the app, a new project will be created. Next the app reads all the tags in the `tags.csv` file. The system searches Bing Images for each tag to prepare the source set of images for the classifier. 
@@ -22,7 +26,7 @@ The app will create a project in your custom vision dashboard with a random GUID
 ![list of tags to download in tags.csv](documents/CustomVision2.PNG)
 
 
-By default it downloads eight images for each tag - five images for training the model and three images for the testing the model.
+By default it downloads ten images for each tag. This is set in the app.config as sizeOfImageSet. Ideally you should change this around 100 images to get better results. We perform image augmentation steps to increase the size of the training dataset.
 After downloading the images, the app will then upload the photos into the customvision.ai project and tag them accordingly.
 
 Now the model has enough data to be trained. The app will train the model and set the default iteration to the newly trained model.
