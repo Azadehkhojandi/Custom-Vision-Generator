@@ -396,9 +396,17 @@ namespace CustomVisionEnd2End
 
         private static void WriteImageFile(Image<Bgr, byte> img, string imageFilePath, string typeStr="")
         {
-            using (BinaryWriter binaryWrite = new BinaryWriter(new FileStream(imageFilePath.Replace(".jpg", "") + typeStr+".jpg", FileMode.Create, FileAccess.Write)))
+            try
             {
-                binaryWrite.Write(img.ToJpegData(95));
+                using (BinaryWriter binaryWrite = new BinaryWriter(new FileStream(imageFilePath.Replace(".jpg", "") + typeStr + ".jpg", FileMode.Create, FileAccess.Write)))
+                {
+                    binaryWrite.Write(img.ToJpegData(95));
+                }
+            }
+            catch (Exception e)
+            {
+                //kill exception and carry on and don't block if file write fails
+                Console.WriteLine(e);
             }
         }
 
