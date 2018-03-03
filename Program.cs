@@ -494,7 +494,7 @@ namespace CustomVisionEnd2End
                         var label = dir.Name;
                         labels.Add(label);
 
-                        Console.WriteLine($"\tActucal tag: {label}");
+                        Console.WriteLine($"\tActual tag: {label}");
 
                         var result = predictionEndpoint.PredictImage(project.Id, testImage);
                         var predictedClass = result.Predictions[0].Tag;
