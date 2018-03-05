@@ -98,7 +98,7 @@
     <Compile Include="Models\TagModel.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="app.config" />
+    <None Include="App.config" />
     <None Include="README.md" />
     <None Include="SAMPLEApp.config" />
     <None Include="tags.csv">

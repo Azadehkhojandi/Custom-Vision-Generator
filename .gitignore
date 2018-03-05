@@ -9,8 +9,6 @@
 .userosscache
 .sln.docstates
 
-# Remove the app.config file to avoid people accidently checking in their keys
-app.config
 
 # User-specific files (MonoDevelopXamarin Studio)
 .userprefs
