@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -55,6 +56,8 @@ namespace CustomVisionEnd2End
 
         }
 
+
+
         static async Task MainAsync(string[] args)
         {
             /* you need at least 2 tags and 5 images for each tag to start*/
@@ -68,10 +71,10 @@ namespace CustomVisionEnd2End
             var tags = ReadTags(tsgfilepath);
 
             //generate random name for the project 
-
             var projectName = tags.Count == 2 ? $"{tags[0]} {tags[1]} classifier {DateTime.Now:yyyyMMddHHmm}" : DateTime.Now.ToString("yyyyMMddHHmm");
+
             Console.WriteLine($"\tCreating a project in customvision.ai - project name: {projectName}");
-            
+
             var project = CreateProject(projectName);
 
             //download images - 
@@ -85,16 +88,14 @@ namespace CustomVisionEnd2End
             System.IO.Directory.CreateDirectory(testSetPath);
 
 
-            //int minTrainingPhotosCount = 60; //60;
-            //int minTestPhotosCount = 20; // 20;
 
-            int sizeOfImageSet = 10;
-            try
-            {
-                sizeOfImageSet = Convert.ToInt16(ConfigurationManager.AppSettings["sizeOfImageSet"]); //recommend 100
-            }
-            catch { }
 
+            var minTrainingPhotosCount = int.Parse(ConfigurationManager.AppSettings["TrainingImagesCount"]);
+            var minTestPhotosCount = int.Parse(ConfigurationManager.AppSettings["TestImagesCount"]);
+
+            var sizeOfImageSet = (minTrainingPhotosCount + minTestPhotosCount) * 3;
+
+            var augmentTrainingImages = bool.Parse(ConfigurationManager.AppSettings["AugmentTrainingImages"]);
             foreach (var tag in tags)
             {
                 {
@@ -113,24 +114,31 @@ namespace CustomVisionEnd2End
                             }
                         }
 
-                        //
+                        var randomize = bool.Parse(ConfigurationManager.AppSettings["Randomize"]);
+                        var imageList = bingresult.value.ToList();
+                        if (randomize)
+                        {
+                            imageList.Shuffle();
+                        }
                         //training 
-                        Console.WriteLine($"\tDownloading the training and test set");
-                        var trainingphotos = DownloadImages(projectName, tag, bingresult.value.ToList(), sizeOfImageSet);
+                        Console.WriteLine($"\tDownloading the training set");
+                        var trainingphotos = await DownloadImagesAsync($"{trainingSetPath}\\{tag}", imageList, minTrainingPhotosCount, augmentTrainingImages);
                         //test
-                        //Console.WriteLine($"\tDownloading the test set");
-                        //var testphotos = DownloadImages($"{testSetPath}\\{tag}", bingresult.value.Skip(trainingphotos).ToList(), minTestPhotosCount, false);
+                        Console.WriteLine($"\tDownloading the test set");
+                        var testphotos = await DownloadImagesAsync($"{testSetPath}\\{tag}", imageList.Skip(trainingphotos).ToList(), minTestPhotosCount);
 
-                        //if (trainingphotos < minTrainingPhotosCount || testphotos < minTestPhotosCount)
-                        //{
-                        //    throw new Exception($"Bing couldn't find required images.you need at least 2 tags and 5 images for each tag to start");
-                        //}
+                        if (trainingphotos < minTrainingPhotosCount || testphotos < minTestPhotosCount)
+                        {
+                            throw new Exception($"Bing couldn't find required images.you need at least 2 tags and 5 images for each tag to start");
+                        }
+
+
                     }
                 }
 
             }
 
-            
+
 
             CreateTheModel(trainingSetPath, project);
 
@@ -261,16 +269,15 @@ namespace CustomVisionEnd2End
         /// <summary>
         /// Gets a thumbnail image from the specified image file by using the Computer Vision REST API.
         /// </summary>
-        /// <param name="imageFilePath">The image file to use to create the thumbnail image.</param>
-        static async void SmartResizeImage(string imageurl, string pathString, string filename, bool isTraining)
+        static async Task SmartResizeImage(string imageurl, string pathString, string filename, bool augmentImage)
         {
-            string imageFilePath = pathString + "\\" + filename;
 
-            HttpClient client = new HttpClient();
 
-            string subscriptionKey = ConfigurationManager.AppSettings["ComputerVision_Key"];
+            var client = new HttpClient();
+
+            var subscriptionKey = ConfigurationManager.AppSettings["ComputerVision_Key"];
             // e.g. https://westus2.api.cognitive.microsoft.com/vision/v1.0/generateThumbnail
-            string uriBase = ConfigurationManager.AppSettings["ComputerVision_Url"];
+            var uriBase = ConfigurationManager.AppSettings["ComputerVision_Url"];
 
             // Request headers.
             client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", subscriptionKey);
@@ -279,20 +286,18 @@ namespace CustomVisionEnd2End
             // setting the size for the image is dependant on the model for transfer learning and you can experiment with this to try and get the best results for your dataset
             // '299', '224', '192', '160', or '128' for the input image size, with smaller sizes giving faster speeds during training
             // I recommend if you plan to export the model generated for tensorflow transfer learning with ResNet V2 models use image size of 299
-            string requestParameters = "width=299&height=299&smartCropping=true";
+            var requestParameters = "width=299&height=299&smartCropping=true";
 
             // Assemble the URI for the REST API Call.
-            string uri = uriBase + "?" + requestParameters;
-
-            HttpResponseMessage response;
+            var uri = uriBase + "?" + requestParameters;
 
             // Request body. Posts a locally stored JPEG image.
             //byte[] byteData = GetImageAsByteArray(imageFilePath);
 
             var jsonBody = "{'url': '" + imageurl + "'}";
-            byte[] byteData = Encoding.UTF8.GetBytes(jsonBody);
+            var byteData = Encoding.UTF8.GetBytes(jsonBody);
 
-            using (ByteArrayContent content = new ByteArrayContent(byteData))
+            using (var content = new ByteArrayContent(byteData))
             {
                 // This example uses content type "application/octet-stream".
                 // The other content types you can use are "application/json" and "multipart/form-data".
@@ -300,22 +305,22 @@ namespace CustomVisionEnd2End
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
                 // Execute the REST API call.
-                response = await client.PostAsync(uri, content);
+                var response = await client.PostAsync(uri, content);
 
                 if (response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsByteArrayAsync();
-                    System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(new MemoryStream(responseContent));
-                    AugmentImage(bitmap, pathString, filename, isTraining);
-
-                    /*
-                    // write the image file
-                    var responseContent = await response.Content.ReadAsByteArrayAsync();
-                    using (BinaryWriter binaryWrite = new BinaryWriter(new FileStream(imageFilePath, FileMode.Create, FileAccess.Write)))
+                    using (var bitmap = new System.Drawing.Bitmap(new MemoryStream(responseContent)))
                     {
-                        binaryWrite.Write(responseContent);
+                        SaveImage(bitmap, pathString, filename);
+
+                        if (augmentImage)
+                        {
+                            AugmentImage(bitmap, pathString, filename);
+
+                        }
                     }
-                    */
+
 
                 }
                 else
@@ -326,6 +331,20 @@ namespace CustomVisionEnd2End
                 }
             }
 
+        }
+
+        private static void SaveImage(Bitmap img, string pathString, string filename)
+        {
+
+            var imageFilePath = pathString + "\\" + filename;
+            // flip from RGB to BGR
+            var ogImg = new Image<Bgr, byte>(img);
+
+            // perform Intensity Image Equalization
+            var ycrcb = ogImg.Convert<Ycc, byte>();
+            ycrcb._EqualizeHist();
+            ogImg = ycrcb.Convert<Bgr, byte>(); //replace original image with equalized image
+            WriteImageFile(ogImg, imageFilePath);
         }
 
         /*
@@ -359,42 +378,42 @@ namespace CustomVisionEnd2End
             }
         }
 
-        private static void AugmentImage(System.Drawing.Bitmap img, string pathString, string filename, bool isTraining)
+        private static void AugmentImage(System.Drawing.Bitmap img, string pathString, string filename)
         {
-            string imageFilePath = pathString + "\\" + filename;
+            var imageFilePath = pathString + "\\" + filename;
             // flip from RGB to BGR
-            Image<Bgr, byte> ogImg = new Image<Bgr, byte>(img);
+            var ogImg = new Image<Bgr, byte>(img);
 
             // perform Intensity Image Equalization
-            Image<Ycc, byte> ycrcb = ogImg.Convert<Ycc, byte>();
+            var ycrcb = ogImg.Convert<Ycc, byte>();
             ycrcb._EqualizeHist();
             ogImg = ycrcb.Convert<Bgr, byte>(); //replace original image with equalized image
 
-            if (isTraining) { 
-                // for training images perform additional image augmentation steps
 
-                //Small gaussian blur for about half of the training images with a random odd kernelSize 1,3 or 5
-                if (Convert.ToBoolean(new Random().Next(0, 2)))
-                {
-                    ogImg._SmoothGaussian(RandomNumberOdd(1, 5));
-                }
+            // for training images perform additional image augmentation steps
 
-                // - rotate by -45 to +45 degrees five times
-                for (var i = 0; i < 5; i++)
-                {
-                    WriteImageFile(ogImg.Rotate(new Random().Next(-45, 45), new Bgr(0, 0, 0)), imageFilePath, "_rotated"+i);
-                }
-
-                // flip the image horizontally
-                WriteImageFile(ogImg.Flip(Emgu.CV.CvEnum.FlipType.Horizontal), imageFilePath, "_flipped");
-
+            //Small gaussian blur for about half of the training images with a random odd kernelSize 1,3 or 5
+            if (Convert.ToBoolean(new Random().Next(0, 2)))
+            {
+                ogImg._SmoothGaussian(RandomNumberOdd(1, 5));
             }
-            WriteImageFile(ogImg, imageFilePath);
+
+            // - rotate by -45 to +45 degrees five times
+            for (var i = 0; i < 5; i++)
+            {
+                WriteImageFile(ogImg.Rotate(new Random().Next(-45, 45), new Bgr(0, 0, 0)), imageFilePath, "_rotated" + i);
+            }
+
+            // flip the image horizontally
+            WriteImageFile(ogImg.Flip(Emgu.CV.CvEnum.FlipType.Horizontal), imageFilePath, "_flipped");
+
+
+
 
         }
 
 
-        private static void WriteImageFile(Image<Bgr, byte> img, string imageFilePath, string typeStr="")
+        private static void WriteImageFile(Image<Bgr, byte> img, string imageFilePath, string typeStr = "")
         {
             try
             {
@@ -410,41 +429,24 @@ namespace CustomVisionEnd2End
             }
         }
 
+        private static bool AllowSmartResize()
+        {
+            var computerVisionKey = ConfigurationManager.AppSettings["ComputerVision_Key"];
+            var computerVisionUrl = ConfigurationManager.AppSettings["ComputerVision_Url"];
+            var smartResize = ConfigurationManager.AppSettings["SmartResize"];
 
-        private static int DownloadImages(string projectName, string tag, List<Value> items, int numberofimagestodownload)
+            return (!string.IsNullOrEmpty(computerVisionKey) && !string.IsNullOrEmpty(computerVisionUrl) &&
+                    bool.Parse(smartResize));
+        }
+
+        private static async Task<int> DownloadImagesAsync(string pathString, List<Value> items, int numberofimagestodownload = -1, bool augmentImage = false)
         {
             var counter = 1;
+            Directory.CreateDirectory(pathString);
+            var smartResize = AllowSmartResize();
 
-            var basepath = Directory.GetCurrentDirectory();
-            var imagesresouce = $"{basepath}\\{projectName}\\data\\";
-            var trainingSetPath = $"{imagesresouce}TrainingSet\\{tag}";
-            var testSetPath = $"{imagesresouce}TestSet\\{tag}";
-
-            Directory.CreateDirectory(trainingSetPath);
-            Directory.CreateDirectory(testSetPath);
-
-            string pathString;
-            bool isTraining;
-            
             foreach (var item in items)
             {
-                if ((new Random().Next(1, 11)) <= 7)
-                {
-                    // randomly 70% of the time is training 30% of the time is test
-                    isTraining = true;
-                    pathString = trainingSetPath;
-                }
-                else
-                {
-                    isTraining = false;
-                    pathString = testSetPath;
-                }
-                
-                if (counter%5==0) { 
-                    //API is rate limited wait 5 seconds after every 5 calls
-                    System.Threading.Thread.Sleep(2000);
-                }
-
                 if (numberofimagestodownload > 0 && counter > numberofimagestodownload)
                 {
                     return numberofimagestodownload;
@@ -454,15 +456,39 @@ namespace CustomVisionEnd2End
                     counter = counter + 1;
                     Console.WriteLine("\tDownloading the image");
                     var imageurl = item.contentUrl;
-                    var webClient = new WebClient();
+
                     var uri = new Uri(imageurl);
                     var filename = uri.Segments.Last();
 
-                    //webClient.DownloadFile(imageurl, pathString + "\\" + filename);
 
-                    // rezise the image using smart crop service
-                    SmartResizeImage(imageurl, pathString, filename, isTraining);
-                    
+                    if (!smartResize)
+                    {
+                        var webClient = new WebClient();
+                        var path = pathString + "\\" + filename;
+                        webClient.DownloadFile(imageurl, pathString + "\\" + filename);
+
+                        if (!IsValidImage(path))
+                        {
+
+                            File.Delete(path);
+                            counter = counter - 1;
+                        }
+
+                    }
+                    else
+                    {
+                        if (counter % 5 == 0)
+                        {
+                            //API is rate limited wait 5 seconds after every 5 calls
+                            await Task.Delay(2000);
+                        }
+
+                        // rezise the image using smart crop service
+                        await SmartResizeImage(imageurl, pathString, filename, augmentImage);
+                    }
+
+
+
                 }
                 catch (Exception e)
                 {
@@ -473,6 +499,9 @@ namespace CustomVisionEnd2End
             }
             return counter;
         }
+
+
+
 
         private static void TestingTheModel(string testingSetPath, Project project)
         {
@@ -505,8 +534,11 @@ namespace CustomVisionEnd2End
                         Console.WriteLine($"\tActual tag: {label}");
 
                         var result = predictionEndpoint.PredictImage(project.Id, testImage);
-                        var predictedClass = result.Predictions[0].Tag;
-                        var predictedProb = result.Predictions[0].Probability;
+                        var highProbability = result.Predictions.OrderByDescending(x => x.Probability).First();
+
+
+                        var predictedClass = highProbability.Tag;
+                        var predictedProb = highProbability.Probability;
 
                         var key = $"{label}|{predictedClass}";
                         if (!predictionResult.ContainsKey(key))
@@ -518,7 +550,7 @@ namespace CustomVisionEnd2End
                         // Loop over each prediction and write out the results
                         foreach (var c in result.Predictions)
                         {
-                            Console.WriteLine($"\t{c.Tag}: {c.Probability:P1}");
+                            Console.WriteLine($"\t{c.Tag}: {c.Probability:P2}");
                         }
                     }
                     catch (Exception e)
@@ -776,17 +808,29 @@ namespace CustomVisionEnd2End
             }
         }
 
-
-    }
-
-    static class Extensions
-    {
-        public static void ForEach<T>(this IEnumerable<T> ie, Action<T> action)
+        private static bool IsValidImage(string path)
         {
-            foreach (var i in ie)
+            try
             {
-                action(i);
+                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read))
+                {
+                    System.Drawing.Image im = System.Drawing.Image.FromStream(stream);
+
+                }
             }
+            catch (Exception ex)
+            {
+                //The file does not have a valid image format.
+                //-or- GDI+ does not support the pixel format of the file
+
+                return false;
+            }
+            return true;
         }
+
+
     }
+
+
+
 }
