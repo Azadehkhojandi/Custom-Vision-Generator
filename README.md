@@ -15,9 +15,13 @@ You'll need to install [Visual Studio](https://www.visualstudio.com/vs/community
 
 ![getting an API key](documents/BingSearch.PNG)
 
-4. [Get a Computer Vision API key](https://docs.microsoft.com/en-us/azure/cognitive-services/Computer-vision/Vision-API-How-to-Topics/HowToSubscribe) to perform the smart thumbnails of downloaded images 
+### Optional Steps 
 
-5. Take a copy of SAMPLEApp.config rename it app.config and paste your keys into this file and set the size of your image set (~70% to train and 30% to test)
+4. set the value of 'Randomize' in app settings to `True` if you want to randomize the result of search for training and testing the model. 
+
+5. to enable smart resizing, set the value of `SmartResize` to `True` then [Get a Computer Vision API key](https://docs.microsoft.com/en-us/azure/cognitive-services/Computer-vision/Vision-API-How-to-Topics/HowToSubscribe) to perform the smart thumbnails of downloaded images.
+You also can set `AugmentTrainingImages` to `True` to increase the size of the training dataset
+
 
 ## Running the application
 
@@ -26,12 +30,13 @@ The app will create a project in your custom vision dashboard with a random GUID
 ![list of tags to download in tags.csv](documents/CustomVision2.PNG)
 
 
-By default it downloads ten images for each tag. This is set in the app.config as sizeOfImageSet. Ideally you should change this around 100 images to get better results. We perform image augmentation steps to increase the size of the training dataset.
+By default it downloads eight images for each tag. Five images for training and Three images for testing. Depends on what you are classifying, you can increase the number of `TrainingImagesCount` and `TestImagesCount` to get better accuracy, precision and recall.
+
 After downloading the images, the app will then upload the photos into the customvision.ai project and tag them accordingly.
 
 Now the model has enough data to be trained. The app will train the model and set the default iteration to the newly trained model.
 
-The model is ready for testing so the app will try to test the model the results of which are  exported as a confusion matrix into `result.csv`.
+The model is ready for testing so the app will try to test the model the results of which are exported as a confusion matrix into `result.csv`.
 You can check the quality of your model by reviewing the [confusion matrix](https://en.wikipedia.org/wiki/Confusion_matrix).
 
 As you are running the app you should see output similar to this animation. 
