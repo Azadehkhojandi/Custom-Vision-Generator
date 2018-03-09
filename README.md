@@ -1,5 +1,5 @@
 # Custom Vision Generator
-A tool for generating a custom vision projects. It will automatically find and download images of topics you imput, train the model and export a confusion matrix in CSV format.
+A tool for generating a custom vision projects. It will automatically find and download images of topics you input, train the model and export a confusion matrix in CSV format.
 
 ## Pre-requisites
 You'll need to install [Visual Studio](https://www.visualstudio.com/vs/community/) to build and run this code. 
@@ -17,9 +17,9 @@ You'll need to install [Visual Studio](https://www.visualstudio.com/vs/community
 
 ### Optional Steps 
 
-4. set the value of 'Randomize' in app settings to `True` if you want to randomize the result of search for training and testing the model. 
+4. Set the value of 'Randomize' in app settings to `True` if you want to randomize the result of search for training and testing the model. 
 
-5. to enable smart resizing, set the value of `SmartResize` to `True` then [Get a Computer Vision API key](https://docs.microsoft.com/en-us/azure/cognitive-services/Computer-vision/Vision-API-How-to-Topics/HowToSubscribe) to perform the smart thumbnails of downloaded images.
+5. To enable smart resizing, set the value of `SmartResize` to `True` then [Get a Computer Vision API key](https://docs.microsoft.com/en-us/azure/cognitive-services/Computer-vision/Vision-API-How-to-Topics/HowToSubscribe) to perform the smart thumbnails of downloaded images.
 You also can set `AugmentTrainingImages` to `True` to increase the size of the training dataset
 
 
