@@ -58,8 +58,7 @@ namespace CustomVisionEnd2End
         static async Task MainAsync(string[] args)
         {
             /* you need at least 2 tags and 5 images for each tag to start*/
-
-
+            
             var basepath = Directory.GetCurrentDirectory();
 
             //read tags
@@ -67,11 +66,17 @@ namespace CustomVisionEnd2End
             Console.WriteLine($"\tReading Tags from {tsgfilepath}");
             var tags = ReadTags(tsgfilepath);
 
-            //generate random name for the project 
+            //generate random name for the project if projectname isn't passed in
+            string projectName = string.Empty;
+            try
+            {
+                projectName = ConfigurationManager.AppSettings["ProjectName"];
+            }
+            catch { }
 
-            var projectName = tags.Count == 2 ? $"{tags[0]} {tags[1]} classifier {DateTime.Now:yyyyMMddHHmm}" : DateTime.Now.ToString("yyyyMMddHHmm");
-            Console.WriteLine($"\tCreating a project in customvision.ai - project name: {projectName}");
-            
+            if (projectName == string.Empty) projectName = tags.Count == 2 ? $"{tags[0]} {tags[1]} classifier {DateTime.Now:yyyyMMddHHmm}" : DateTime.Now.ToString("yyyyMMddHHmm");
+
+            Console.WriteLine($"\tCreating or returning project in customvision.ai - project name: {projectName}");
             var project = CreateProject(projectName);
 
             //download images - 
@@ -81,65 +86,95 @@ namespace CustomVisionEnd2End
             Console.WriteLine($"\tBing search & downloading images - split them in TrainingSet & TestSet for each tag");
             Console.WriteLine($"\tTrainingSetPath: {trainingSetPath}");
             Console.WriteLine($"\tTestSetPath: {testSetPath}");
-            System.IO.Directory.CreateDirectory(trainingSetPath);
-            System.IO.Directory.CreateDirectory(testSetPath);
-
-
-            //int minTrainingPhotosCount = 60; //60;
-            //int minTestPhotosCount = 20; // 20;
+            try { 
+                // create the directory if it doesn't already exist
+                System.IO.Directory.CreateDirectory(trainingSetPath);
+            }
+            catch { }
+            try
+            {
+                // create the directory if it doesn't already exist
+                System.IO.Directory.CreateDirectory(testSetPath);
+            }
+            catch { }
 
             int sizeOfImageSet = 10;
             try
             {
-                sizeOfImageSet = Convert.ToInt16(ConfigurationManager.AppSettings["sizeOfImageSet"]); //recommend 100
+                sizeOfImageSet = Convert.ToInt16(ConfigurationManager.AppSettings["SizeOfImageSet"]); //recommend 100
             }
             catch { }
 
-            foreach (var tag in tags)
+            bool PerformImageDownload = true;
+            try
             {
+                PerformImageDownload = Convert.ToBoolean(ConfigurationManager.AppSettings["PerformImageDownload"]); 
+            }
+            catch { }
+
+            if (PerformImageDownload)
+            {
+                foreach (var tag in tags)
                 {
-                    using (var bingImageSearchService = new BingImageSearchService())
                     {
-                        Console.WriteLine($"\tStarting the Process for : {tag}");
-
-                        var bingresult = await bingImageSearchService.ImageSearch(tag, sizeOfImageSet);
-                        if (bingresult.value == null) return;
-                        //
-                        using (var writer = new StreamWriter($"{imagesresouce}\\{tag}_resource.csv"))
+                        using (var bingImageSearchService = new BingImageSearchService())
                         {
-                            using (var csvWriter = new CsvWriter(writer))
+                            Console.WriteLine($"\tStarting the Process for : {tag}");
+                            string tagResource = $"{imagesresouce}\\{tag}_resource.csv";
+                            try
                             {
-                                csvWriter.WriteRecords(bingresult.value);
+                                // if it exists from a previous run delete it
+                                System.IO.File.Delete(tagResource);
                             }
+                            catch { }
+
+                            var bingresult = await bingImageSearchService.ImageSearch(tag, sizeOfImageSet);
+                            if (bingresult.value == null) return;
+                            //
+                            using (var writer = new StreamWriter(tagResource))
+                            {
+                                using (var csvWriter = new CsvWriter(writer))
+                                {
+                                    csvWriter.WriteRecords(bingresult.value);
+                                }
+                            }
+
+                            Console.WriteLine($"\tDownloading the training and test set");
+                            var trainingphotos = DownloadImages(projectName, tag, bingresult.value.ToList(), sizeOfImageSet);
                         }
-
-                        //
-                        //training 
-                        Console.WriteLine($"\tDownloading the training and test set");
-                        var trainingphotos = DownloadImages(projectName, tag, bingresult.value.ToList(), sizeOfImageSet);
-                        //test
-                        //Console.WriteLine($"\tDownloading the test set");
-                        //var testphotos = DownloadImages($"{testSetPath}\\{tag}", bingresult.value.Skip(trainingphotos).ToList(), minTestPhotosCount, false);
-
-                        //if (trainingphotos < minTrainingPhotosCount || testphotos < minTestPhotosCount)
-                        //{
-                        //    throw new Exception($"Bing couldn't find required images.you need at least 2 tags and 5 images for each tag to start");
-                        //}
                     }
-                }
 
+                }
             }
 
-            
+            bool TrainModel = true;
+            try
+            {
+                TrainModel = Convert.ToBoolean(ConfigurationManager.AppSettings["TrainModel"]);
+            }
+            catch { }
 
-            CreateTheModel(trainingSetPath, project);
+            if (TrainModel)
+            {
+                Console.WriteLine($"\tCreating the Model");
+                CreateTheModel(trainingSetPath, project);
 
-            // Now there are images with tags start training the project
-            TrainTheModel(project);
+                // Now there are images with tags start training the project
+                TrainTheModel(project);
+            }
 
-            Console.WriteLine($"\tTesting the Model");
+            bool TestModel = true;
+            try
+            {
+                TestModel = Convert.ToBoolean(ConfigurationManager.AppSettings["TestModel"]);
+            }
+            catch { }
 
-            TestingTheModel(testSetPath, project);
+            if (TestModel)
+            {
+                Console.WriteLine($"\tTesting the Model");
+                TestingTheModel(testSetPath, project);
+            }
 
         }
 
@@ -272,6 +307,13 @@ namespace CustomVisionEnd2End
             // e.g. https://westus2.api.cognitive.microsoft.com/vision/v1.0/generateThumbnail
             string uriBase = ConfigurationManager.AppSettings["ComputerVision_Url"];
 
+            string widthHeight = "299";
+            try
+            {
+                widthHeight = ConfigurationManager.AppSettings["WidthHeight"];
+            }
+            catch { }
+
             // Request headers.
             client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", subscriptionKey);
 
@@ -279,7 +321,7 @@ namespace CustomVisionEnd2End
             // setting the size for the image is dependant on the model for transfer learning and you can experiment with this to try and get the best results for your dataset
             // '299', '224', '192', '160', or '128' for the input image size, with smaller sizes giving faster speeds during training
             // I recommend if you plan to export the model generated for tensorflow transfer learning with ResNet V2 models use image size of 299
-            string requestParameters = "width=299&height=299&smartCropping=true";
+            string requestParameters = $"width={widthHeight}&height={widthHeight}&smartCropping=true";
 
             // Assemble the URI for the REST API Call.
             string uri = uriBase + "?" + requestParameters;
@@ -370,25 +412,6 @@ namespace CustomVisionEnd2End
             ycrcb._EqualizeHist();
             ogImg = ycrcb.Convert<Bgr, byte>(); //replace original image with equalized image
 
-            if (isTraining) { 
-                // for training images perform additional image augmentation steps
-
-                //Small gaussian blur for about half of the training images with a random odd kernelSize 1,3 or 5
-                if (Convert.ToBoolean(new Random().Next(0, 2)))
-                {
-                    ogImg._SmoothGaussian(RandomNumberOdd(1, 5));
-                }
-
-                // - rotate by -45 to +45 degrees five times
-                for (var i = 0; i < 5; i++)
-                {
-                    WriteImageFile(ogImg.Rotate(new Random().Next(-45, 45), new Bgr(0, 0, 0)), imageFilePath, "_rotated"+i);
-                }
-
-                // flip the image horizontally
-                WriteImageFile(ogImg.Flip(Emgu.CV.CvEnum.FlipType.Horizontal), imageFilePath, "_flipped");
-
-            }
             WriteImageFile(ogImg, imageFilePath);
 
         }
@@ -477,7 +500,6 @@ namespace CustomVisionEnd2End
         private static void TestingTheModel(string testingSetPath, Project project)
         {
 
-
             var predictionKey = ConfigurationManager.AppSettings["CustomVision_PredictionKey"];
             var predictionEndpoint = new PredictionEndpoint() { ApiKey = predictionKey };
 
@@ -502,7 +524,7 @@ namespace CustomVisionEnd2End
                         var label = dir.Name;
                         labels.Add(label);
 
-                        Console.WriteLine($"\tActucal tag: {label}");
+                        Console.WriteLine($"\tActual tag: {label}");
 
                         var result = predictionEndpoint.PredictImage(project.Id, testImage);
                         var predictedClass = result.Predictions[0].Tag;
@@ -530,9 +552,16 @@ namespace CustomVisionEnd2End
 
                 }
             }
+            string testModelPath = $"{testingSetPath}\\testModel.csv";
             try
             {
-                using (TextWriter writer = new StreamWriter($"{testingSetPath}\\testModel.csv"))
+                // delete the previous confusion matrix if it exists
+                System.IO.File.Delete(testModelPath);
+            }
+            catch { }
+            try
+            {
+                using (TextWriter writer = new StreamWriter(testModelPath))
                 {
                     var csv = new CsvWriter(writer);
 
@@ -550,7 +579,6 @@ namespace CustomVisionEnd2End
             //pretty print
             PrettyPrint(array2D);
 
-
             ExporttoCSV(testingSetPath, array2D);
         }
 
@@ -563,8 +591,6 @@ namespace CustomVisionEnd2End
 
             try
             {
-
-
                 var colindex = 0;
                 var rowindex = 0;
                 foreach (var lable in labels)
@@ -706,6 +732,13 @@ namespace CustomVisionEnd2End
 
             var trainingModel = new List<Model>();
 
+            bool performImageAugmentation = true;
+            try
+            {
+                performImageAugmentation = Convert.ToBoolean(ConfigurationManager.AppSettings["PerformImageAugmentation"]);
+            }
+            catch { }
+
             var trainingSet = Directory.GetDirectories(trainingSetPath);
             foreach (var subdirectory in trainingSet)
             {
@@ -727,7 +760,28 @@ namespace CustomVisionEnd2End
                     {
 
                         Console.WriteLine($"\tUploading image with tag: {tag.Name}");
-                        trainingApi.CreateImagesFromData(project.Id, image, new List<string>() { tag.Id.ToString() });
+
+                        if (performImageAugmentation)
+                        {
+                            // flip from RGB to BGR
+                            System.Drawing.Bitmap img = new System.Drawing.Bitmap(image);
+                            Image<Bgr, byte> ogImg = new Image<Bgr, byte>(img);
+                            image.Seek(0, SeekOrigin.Begin);
+                            trainingApi.CreateImagesFromData(project.Id, image, new List<string>() { tag.Id.ToString() });
+
+                            for (var i = 0; i < 5; i++)
+                            {
+                                trainStream(ogImg.Rotate(new Random().Next(-45, 45), new Bgr(0, 0, 0)).ToBitmap(), trainingApi, project.Id, tag.Id.ToString());
+                            }
+
+                            // flip the image horizontally
+                            trainStream(ogImg.Flip(Emgu.CV.CvEnum.FlipType.Horizontal).ToBitmap(), trainingApi, project.Id, tag.Id.ToString());
+                        }
+                        else
+                        {
+                            trainingApi.CreateImagesFromData(project.Id, image, new List<string>() { tag.Id.ToString() });
+                        }
+                        
                     }
                     catch (Exception e)
                     {
@@ -757,6 +811,14 @@ namespace CustomVisionEnd2End
 
         }
 
+        private static void trainStream(System.Drawing.Image augImage, TrainingApi trainingApi, Guid projectId, string tagId)
+        {
+            MemoryStream augImageStream = new MemoryStream();
+            augImage.Save(augImageStream, System.Drawing.Imaging.ImageFormat.Jpeg);
+            augImageStream.Seek(0, SeekOrigin.Begin);
+            trainingApi.CreateImagesFromData(projectId, augImageStream, new List<string>() { tagId });
+        }
+
         private static Project CreateProject(string projectName)
         {
             try
@@ -765,9 +827,19 @@ namespace CustomVisionEnd2End
                 var trainingApi = new TrainingApi() { ApiKey = trainingKey };
 
                 // Create a new project
+                
+                IList<Project> projects =  trainingApi.GetProjects();
+                foreach (Project p in projects)
+                {
+                    if (p.Name == projectName)
+                    {
+                        Console.WriteLine("\tFound project: "+ projectName);
+                        return p;
+                    }
+                }
+                // A project isn't found with this name create it.
                 Console.WriteLine("\tCreating new project:");
-                var project = trainingApi.CreateProject(projectName);
-                return project;
+                return trainingApi.CreateProject(projectName);
             }
             catch (Exception e)
             {
