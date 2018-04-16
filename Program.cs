@@ -345,19 +345,13 @@ namespace CustomVisionEnd2End
                 response = await client.PostAsync(uri, content);
 
                 if (response.IsSuccessStatusCode)
-                {
-                    var responseContent = await response.Content.ReadAsByteArrayAsync();
-                    System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(new MemoryStream(responseContent));
-                    AugmentImage(bitmap, pathString, filename, isTraining);
-
-                    /*
+                { 
                     // write the image file
                     var responseContent = await response.Content.ReadAsByteArrayAsync();
                     using (BinaryWriter binaryWrite = new BinaryWriter(new FileStream(imageFilePath, FileMode.Create, FileAccess.Write)))
                     {
                         binaryWrite.Write(responseContent);
                     }
-                    */
 
                 }
                 else
@@ -400,7 +394,7 @@ namespace CustomVisionEnd2End
                 else return 0;
             }
         }
-
+        /*
         private static void AugmentImage(System.Drawing.Bitmap img, string pathString, string filename, bool isTraining)
         {
             string imageFilePath = pathString + "\\" + filename;
@@ -415,7 +409,7 @@ namespace CustomVisionEnd2End
             WriteImageFile(ogImg, imageFilePath);
 
         }
-
+        */
 
         private static void WriteImageFile(Image<Bgr, byte> img, string imageFilePath, string typeStr="")
         {
@@ -448,12 +442,19 @@ namespace CustomVisionEnd2End
 
             string pathString;
             bool isTraining;
-            
+
+            bool performSmartCrop = true;
+            try
+            {
+                performSmartCrop = Convert.ToBoolean(ConfigurationManager.AppSettings["PerformSmartCrop"]);
+            }
+            catch { }
+
             foreach (var item in items)
             {
-                if ((new Random().Next(1, 11)) <= 7)
+                if ((new Random().Next(1, 11)) <= 8)
                 {
-                    // randomly 70% of the time is training 30% of the time is test
+                    // randomly 80% of the time is training 20% of the time is test
                     isTraining = true;
                     pathString = trainingSetPath;
                 }
@@ -463,7 +464,7 @@ namespace CustomVisionEnd2End
                     pathString = testSetPath;
                 }
                 
-                if (counter%5==0) { 
+                if ((performSmartCrop)&&(counter%5==0)) { 
                     //API is rate limited wait 5 seconds after every 5 calls
                     System.Threading.Thread.Sleep(2000);
                 }
@@ -481,11 +482,15 @@ namespace CustomVisionEnd2End
                     var uri = new Uri(imageurl);
                     var filename = uri.Segments.Last();
 
-                    //webClient.DownloadFile(imageurl, pathString + "\\" + filename);
-
                     // rezise the image using smart crop service
-                    SmartResizeImage(imageurl, pathString, filename, isTraining);
-                    
+                    if (performSmartCrop) { 
+                        SmartResizeImage(imageurl, pathString, filename, isTraining);
+                    }
+                    else
+                    {
+                        webClient.DownloadFile(imageurl, pathString + "\\" + filename);
+                    }
+
                 }
                 catch (Exception e)
                 {
@@ -499,6 +504,26 @@ namespace CustomVisionEnd2End
 
         private static void TestingTheModel(string testingSetPath, Project project)
         {
+            bool performImageAugmentation = true;
+            try
+            {
+                performImageAugmentation = Convert.ToBoolean(ConfigurationManager.AppSettings["PerformImageAugmentation"]);
+            }
+            catch { }
+
+            int widthHeight = 299;
+            try
+            {
+                widthHeight = Convert.ToInt32(ConfigurationManager.AppSettings["WidthHeight"]);
+            }
+            catch { }
+
+            int padImages = 10;
+            try
+            {
+                padImages = Convert.ToInt32(ConfigurationManager.AppSettings["PadImages"]);
+            }
+            catch { }
 
             var predictionKey = ConfigurationManager.AppSettings["CustomVision_PredictionKey"];
             var predictionEndpoint = new PredictionEndpoint() { ApiKey = predictionKey };
@@ -525,8 +550,73 @@ namespace CustomVisionEnd2End
                         labels.Add(label);
 
                         Console.WriteLine($"\tActual tag: {label}");
+                        Microsoft.Cognitive.CustomVision.Prediction.Models.ImagePredictionResultModel result;
 
-                        var result = predictionEndpoint.PredictImage(project.Id, testImage);
+                        if (performImageAugmentation)
+                        {
+                            // flip from RGB to BGR
+                            System.Drawing.Bitmap img = new System.Drawing.Bitmap(testImage);
+                            Image<Bgr, byte> ogImg = new Image<Bgr, byte>(img);
+
+                            // perform Intensity Image Equalization
+                            Image<Ycc, byte> ycrcb = ogImg.Convert<Ycc, byte>();
+                            ycrcb._EqualizeHist();
+                            ogImg = ycrcb.Convert<Bgr, byte>(); //replace original image with equalized image
+
+                            int top = 0;
+                            int bottom = 0;
+                            int left = 0;
+                            int right = 0;
+
+                            if (img.Width != img.Height)
+                            {
+                                // we need to pad our image if the width and height aren't set already in a previous smart crop step
+
+                                if (img.Width < img.Height)
+                                {
+                                    int dif = img.Height - img.Width;
+                                    left = dif / 2;
+                                    right = dif - left;
+                                }
+
+                                if (img.Height < img.Width)
+                                {
+                                    int dif = img.Width - img.Height;
+                                    top = dif / 2;
+                                    bottom = dif - top;
+                                }
+                            }
+
+                            if (padImages > 0)
+                            {
+                                top += padImages;
+                                bottom += padImages;
+                                left += padImages;
+                                right += padImages;
+                            }
+
+                            if ((top > 0) || (bottom > 0) || (left > 0) || (right > 0))
+                            {
+                                Image<Bgr, byte> padImg = new Image<Bgr, byte>(img.Width + left + right, img.Height + top + bottom);
+                                CvInvoke.CopyMakeBorder(ogImg, padImg, top, bottom, left, right, Emgu.CV.CvEnum.BorderType.Constant, new MCvScalar(255, 255, 255)); // pad the image with a white background
+                                ogImg = padImg;
+                            }
+
+                            if (ogImg.Width != widthHeight)
+                            {
+                                // resize the padded image
+                                ogImg = ogImg.Resize(widthHeight, widthHeight, Emgu.CV.CvEnum.Inter.Linear);
+                            }
+
+                            MemoryStream augImageStream = new MemoryStream();
+                            ogImg.ToBitmap().Save(augImageStream, System.Drawing.Imaging.ImageFormat.Jpeg);
+                            augImageStream.Seek(0, SeekOrigin.Begin);
+                            result = predictionEndpoint.PredictImage(project.Id, augImageStream);
+                        }
+                        else
+                        {
+                            result = predictionEndpoint.PredictImage(project.Id, testImage);
+                        }
                         var predictedClass = result.Predictions[0].Tag;
                         var predictedProb = result.Predictions[0].Probability;
 
@@ -548,7 +638,6 @@ namespace CustomVisionEnd2End
                         //kill exception and carry on
                         Console.WriteLine(e);
                     }
-
 
                 }
             }
@@ -724,6 +813,7 @@ namespace CustomVisionEnd2End
 
         }
 
+
         private static void CreateTheModel(string trainingSetPath, Project project)
         {
 
@@ -739,6 +829,20 @@ namespace CustomVisionEnd2End
             }
             catch { }
 
+            int widthHeight = 299;
+            try
+            {
+                widthHeight = Convert.ToInt32(ConfigurationManager.AppSettings["WidthHeight"]);
+            }
+            catch { }
+
+            int padImages = 10;
+            try
+            {
+                padImages = Convert.ToInt32(ConfigurationManager.AppSettings["PadImages"]);
+            }
+            catch { }
+
             var trainingSet = Directory.GetDirectories(trainingSetPath);
             foreach (var subdirectory in trainingSet)
             {
@@ -746,6 +850,7 @@ namespace CustomVisionEnd2End
                 var name = dir.Name;
 
                 Console.WriteLine($"\tAdding Tag - {name}");
+                
                 var tag = trainingApi.CreateTag(project.Id, name);
 
                 var images = Directory.GetFiles($"{subdirectory}").Select(f =>
@@ -766,16 +871,68 @@ namespace CustomVisionEnd2End
                             // flip from RGB to BGR
                             System.Drawing.Bitmap img = new System.Drawing.Bitmap(image);
                             Image<Bgr, byte> ogImg = new Image<Bgr, byte>(img);
-                            image.Seek(0, SeekOrigin.Begin);
-                            trainingApi.CreateImagesFromData(project.Id, image, new List<string>() { tag.Id.ToString() });
 
-                            for (var i = 0; i < 5; i++)
+                            // perform Intensity Image Equalization
+                            Image<Ycc, byte> ycrcb = ogImg.Convert<Ycc, byte>();
+                            ycrcb._EqualizeHist();
+                            ogImg = ycrcb.Convert<Bgr, byte>(); //replace original image with equalized image
+
+                            int top = 0;
+                            int bottom = 0;
+                            int left = 0;
+                            int right = 0;
+
+                            if (img.Width != img.Height)
                             {
-                                trainStream(ogImg.Rotate(new Random().Next(-45, 45), new Bgr(0, 0, 0)).ToBitmap(), trainingApi, project.Id, tag.Id.ToString());
+                                // we need to pad our image if the width and height aren't set already in a previous smart crop step
+
+                                if (img.Width < img.Height)
+                                {
+                                    int dif = img.Height - img.Width;
+                                    left = dif / 2;
+                                    right = dif - left;
+                                }
+
+                                if (img.Height < img.Width)
+                                {
+                                    int dif = img.Width - img.Height;
+                                    top = dif / 2;
+                                    bottom = dif - top;
+                                }
                             }
 
-                            // flip the image horizontally
-                            trainStream(ogImg.Flip(Emgu.CV.CvEnum.FlipType.Horizontal).ToBitmap(), trainingApi, project.Id, tag.Id.ToString());
+                            if (padImages > 0)
+                            {
+                                top += padImages;
+                                bottom += padImages;
+                                left += padImages;
+                                right += padImages;
+                            }
+
+                            if ((top > 0)||(bottom>0)||(left>0)||(right>0))
+                            {
+                                Image<Bgr, byte> padImg = new Image<Bgr, byte>(img.Width + left + right, img.Height + top + bottom);
+                                CvInvoke.CopyMakeBorder(ogImg, padImg, top, bottom, left, right, Emgu.CV.CvEnum.BorderType.Constant, new MCvScalar(255, 255, 255)); // pad the image with a white background
+                                ogImg = padImg;
+                            }
+
+                            if (ogImg.Width != widthHeight)
+                            {
+                                // resize the padded image
+                                ogImg = ogImg.Resize(widthHeight, widthHeight, Emgu.CV.CvEnum.Inter.Linear);
+                            }
+
+                            trainStream(ogImg.ToBitmap(), trainingApi, project.Id, tag.Id.ToString());
+
+                            for (var i = 0; i < 3; i++)
+                            {
+                                if ((new Random().Next(1, 11)) <= 5)
+                                {
+                                    // 50% of the time flip the image horizontally before rotation
+                                    ogImg = ogImg.Flip(Emgu.CV.CvEnum.FlipType.Horizontal);
+                                }
+                                trainStream(ogImg.Rotate(new Random().Next(-45, 45), new Bgr(255, 255, 255)).ToBitmap(), trainingApi, project.Id, tag.Id.ToString()); // rotate with a white background
+                            }
                         }
                         else
                         {

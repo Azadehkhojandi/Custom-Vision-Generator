@@ -101,8 +101,11 @@
     <None Include="app.config">
       <SubType>Designer</SubType>
     </None>
+    <None Include="PythonNotebook\Image Search Cognitive Services.ipynb" />
     <None Include="README.md" />
-    <None Include="SAMPLEApp.config" />
+    <None Include="SAMPLEApp.config">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="tags.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
