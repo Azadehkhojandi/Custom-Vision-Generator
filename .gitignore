@@ -324,3 +324,31 @@ ASALocalRun
 # MSBuild Binary and Structured Log
 .binlog
 /ConstumVisionEnd2End.csproj.user
+
+# dotenv environment variables file
+.env
+
+config.yml
+
+.vscode
+.vscode/launch.json
+.vscode/settings.json
+
+# python
+*.pyc
+*.pyo
+build/
+dist/
+.installed.cfg
+bin
+develop-eggs
+dist
+downloads
+eggs
+parts
+src/*.egg-info
+lib
+lib64
+
+*/data
+*.ipynb_checkpoints
